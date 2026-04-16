@@ -407,73 +407,7 @@ normalized = (value - min) / (max - min)
 
 ---
 
-## 🧪 Development
-
-### Available Scripts
-
-```bash
-# Development
-npm run start:dev          # Start with hot-reload
-
-# Production
-npm run build              # Build for production
-npm run start:prod         # Start production server
-
-# Testing
-npm run test               # Run unit tests
-npm run test:watch         # Run tests in watch mode
-npm run test:cov           # Generate coverage report
-npm run test:e2e           # Run E2E tests
-
-# Code Quality
-npm run lint               # Run ESLint
-npm run format             # Format with Prettier
-
-# Database
-npm run seed               # Seed database with sample data
-```
-
-### Sample Credentials (After Seeding)
-
-```
-Admin:
-  Phone: 03001234567
-  Password: admin123
-
-Worker:
-  Phone: 03011234567
-  Password: worker123
-
-Customer:
-  Phone: 03061234567
-  Password: customer123
-```
-
----
-
-## 🚢 Deployment
-
-### Environment Variables Checklist
-
-✅ `MONGODB_URI` - Production MongoDB connection string  
-✅ `JWT_SECRET` - Strong, unique secret key  
-✅ `CLOUDINARY_NAME` - Cloudinary cloud name  
-✅ `CLOUDINARY_API_KEY` - Cloudinary API key  
-✅ `CLOUDINARY_API_SECRET` - Cloudinary API secret  
-✅ `EMAIL_USER` - Gmail account  
-✅ `EMAIL_PASSWORD` - Gmail app password  
-✅ `STRIPE_SECRET_KEY` - Stripe secret key  
-✅ `NODE_ENV=production`  
-
-### Deployment Platforms
-
-**Heroku**
-```bash
-heroku create rozgaar360-api
-heroku config:set MONGODB_URI=your_uri
-heroku config:set JWT_SECRET=your_secret
-git push heroku main
-```
+## Deployments Tools
 
 **Railway**
 ```bash
@@ -518,27 +452,6 @@ CMD ["node", "dist/main"]
 
 ---
 
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Coding Standards
-
-- Follow NestJS best practices
-- Use TypeScript strict mode
-- Write unit tests for services
-- Document complex logic
-- Use DTOs for validation
-- Follow REST API conventions
-
----
-
 ## 📝 License
 
 This project is part of a Final Year Project (FYP) for educational purposes.
@@ -548,8 +461,8 @@ This project is part of a Final Year Project (FYP) for educational purposes.
 ## 👨💻 Team
 
 **Rozgaar360 Development Team**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- Email: contact@rozgaar360.com
+- GitHub: [@irfanarshad-dev](https://github.com/irfanarshad-dev)
+- Email: dev.irfan077@gmail.com
 
 ---
 
@@ -563,13 +476,7 @@ This project is part of a Final Year Project (FYP) for educational purposes.
 
 ---
 
-## 📞 Support
 
-For support:
-- Email: support@rozgaar360.com
-- Issues: [GitHub Issues](https://github.com/yourusername/rozgaar360-backend/issues)
-
----
 
 <div align="center">
   <p>Made with ❤️ in Pakistan</p>

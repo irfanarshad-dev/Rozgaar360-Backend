@@ -41,7 +41,24 @@ export class UsersService {
       const user = await this.userModel.findById(userId);
       if (!user) throw new NotFoundException('User not found');
 
-      const { skill, experience, address, ...userFields } = updateData;
+      const {
+        skill,
+        experience,
+        address,
+        workerLatitude,
+        workerLongitude,
+        workerAddress,
+        isAvailableNow,
+        workStartTime,
+        workEndTime,
+        nextAvailableAt,
+        responseRate,
+        serviceRadiusKm,
+        weeklySchedule,
+        customerLatitude,
+        customerLongitude,
+        ...userFields
+      } = updateData;
       
       const updatedUser = await this.userModel.findByIdAndUpdate(
         userId,
@@ -55,7 +72,47 @@ export class UsersService {
         if (experience !== undefined && experience !== '') {
           profileData['experience'] = parseInt(experience, 10);
         }
-        
+        if (workerAddress) profileData['workerAddress'] = workerAddress;
+
+        if (isAvailableNow !== undefined) {
+          profileData['isAvailableNow'] = isAvailableNow === true || isAvailableNow === 'true';
+        }
+        if (workStartTime || workEndTime) {
+          profileData['workingHours'] = {
+            start: workStartTime,
+            end: workEndTime,
+          };
+        }
+        if (nextAvailableAt) {
+          profileData['nextAvailableAt'] = new Date(nextAvailableAt);
+        }
+        if (responseRate !== undefined && responseRate !== '') {
+          profileData['responseRate'] = Number(responseRate);
+        }
+        if (serviceRadiusKm !== undefined && serviceRadiusKm !== '') {
+          profileData['serviceRadiusKm'] = Number(serviceRadiusKm);
+        }
+
+        if (Array.isArray(weeklySchedule) && weeklySchedule.length > 0) {
+          profileData['weeklySchedule'] = weeklySchedule.map((entry: any) => ({
+            day: String(entry.day || '').trim(),
+            enabled: entry.enabled === true || entry.enabled === 'true',
+            start: String(entry.start || '09:00'),
+            end: String(entry.end || '18:00'),
+          })).filter((entry: any) => entry.day);
+        }
+
+        const hasValidWorkerLocation = Number.isFinite(workerLatitude) && Number.isFinite(workerLongitude)
+          && Math.abs(Number(workerLatitude)) <= 90 && Math.abs(Number(workerLongitude)) <= 180;
+
+        if (hasValidWorkerLocation) {
+          profileData['location'] = {
+            type: 'Point',
+            coordinates: [Number(workerLongitude), Number(workerLatitude)],
+          };
+          profileData['locationUpdatedAt'] = new Date();
+        }
+
         if (Object.keys(profileData).length > 0) {
           await this.workerProfileModel.findOneAndUpdate(
             { userId },
@@ -64,10 +121,27 @@ export class UsersService {
           );
         }
       } else if (user.role === 'customer') {
+        const customerProfileData = {};
+
         if (address) {
+          customerProfileData['address'] = address;
+        }
+
+        const hasValidCustomerLocation = Number.isFinite(customerLatitude) && Number.isFinite(customerLongitude)
+          && Math.abs(Number(customerLatitude)) <= 90 && Math.abs(Number(customerLongitude)) <= 180;
+
+        if (hasValidCustomerLocation) {
+          customerProfileData['location'] = {
+            type: 'Point',
+            coordinates: [Number(customerLongitude), Number(customerLatitude)],
+          };
+          customerProfileData['locationUpdatedAt'] = new Date();
+        }
+
+        if (Object.keys(customerProfileData).length > 0) {
           await this.customerProfileModel.findOneAndUpdate(
             { userId },
-            { address },
+            customerProfileData,
             { new: true }
           );
         }
@@ -113,12 +187,22 @@ export class UsersService {
   }
 
   async getWorker(workerId: string) {
-    const user = await this.userModel.findById(workerId).select('-password');
-    if (!user || user.role !== 'worker') {
+    let user = await this.userModel.findById(workerId).select('-password');
+    let profile: any = null;
+
+    if (user && user.role === 'worker') {
+      profile = await this.workerProfileModel.findOne({ userId: user._id });
+      return { ...user.toObject(), profile };
+    }
+
+    // Fallback: allow worker profile id to be used in routes.
+    profile = await this.workerProfileModel.findById(workerId).populate('userId', '-password');
+    const profileUser: any = profile?.userId;
+
+    if (!profileUser || profileUser.role !== 'worker') {
       throw new NotFoundException('Worker not found');
     }
 
-    const profile = await this.workerProfileModel.findOne({ userId: workerId });
-    return { ...user.toObject(), profile };
+    return { ...profileUser.toObject(), profile };
   }
 }

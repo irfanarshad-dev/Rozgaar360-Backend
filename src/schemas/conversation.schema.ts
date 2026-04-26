@@ -3,13 +3,13 @@ import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: true })
 export class Conversation extends Document {
-  @Prop({ type: Types.ObjectId, required: true })
+  @Prop({ type: Types.ObjectId, required: false, default: null })
   jobId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, required: true })
+  @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
   workerId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, required: true })
+  @Prop({ type: Types.ObjectId, required: true, ref: 'User' })
   customerId: Types.ObjectId;
 
   @Prop({ default: null })

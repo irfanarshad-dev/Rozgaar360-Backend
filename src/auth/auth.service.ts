@@ -26,6 +26,21 @@ export class AuthService {
     private emailService: EmailService,
   ) {}
 
+  private hasValidCoordinates(lat?: number, lng?: number): boolean {
+    return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat as number) <= 90 && Math.abs(lng as number) <= 180;
+  }
+
+  private buildGeoPoint(lat?: number, lng?: number) {
+    if (!this.hasValidCoordinates(lat, lng)) {
+      return undefined;
+    }
+
+    return {
+      type: 'Point',
+      coordinates: [lng as number, lat as number],
+    };
+  }
+
   async register(registerDto: RegisterDto) {
     // Check if phone already exists
     const existingPhone = await this.userModel.findOne({ phone: registerDto.phone });
@@ -35,7 +50,7 @@ export class AuthService {
 
     // Check if email already exists (if provided)
     if (registerDto.email) {
-      const existingEmail = await this.userModel.findOne({ email: registerDto.email });
+      const existingEmail = await this.userModel.findOne({ email: registerDto.email.toLowerCase() });
       if (existingEmail) {
         throw new ConflictException('Email already registered');
       }
@@ -46,7 +61,7 @@ export class AuthService {
     const user = await this.userModel.create({
       name: registerDto.name,
       phone: registerDto.phone,
-      email: registerDto.email,
+      email: registerDto.email ? registerDto.email.toLowerCase() : undefined,
       password: hashedPassword,
       role: registerDto.role,
       city: registerDto.city,
@@ -54,15 +69,33 @@ export class AuthService {
 
     // Create role-specific profile
     if (registerDto.role === 'worker') {
+      const workerLocation = this.buildGeoPoint(registerDto.workerLatitude, registerDto.workerLongitude);
+
       await this.workerProfileModel.create({
         userId: user._id,
         skill: registerDto.skill,
         experience: registerDto.experience,
+        workerAddress: registerDto.workerAddress,
+        location: workerLocation,
+        locationUpdatedAt: workerLocation ? new Date() : undefined,
+        isAvailableNow: registerDto.isAvailableNow ?? true,
+        workingHours: {
+          start: registerDto.workStartTime,
+          end: registerDto.workEndTime,
+        },
+        nextAvailableAt: registerDto.nextAvailableAt ? new Date(registerDto.nextAvailableAt) : undefined,
+        responseRate: registerDto.responseRate ?? 100,
+        serviceRadiusKm: registerDto.serviceRadiusKm ?? 10,
+        lastActiveAt: new Date(),
       });
     } else if (registerDto.role === 'customer') {
+      const customerLocation = this.buildGeoPoint(registerDto.customerLatitude, registerDto.customerLongitude);
+
       await this.customerProfileModel.create({
         userId: user._id,
         address: registerDto.address,
+        location: customerLocation,
+        locationUpdatedAt: customerLocation ? new Date() : undefined,
       });
     } else if (registerDto.role === 'admin') {
       await this.adminProfileModel.create({
@@ -92,7 +125,7 @@ export class AuthService {
     // Find user by phone or email
     const query: any = {};
     if (loginDto.phone) query.phone = loginDto.phone;
-    if (loginDto.email) query.email = loginDto.email;
+    if (loginDto.email) query.email = loginDto.email.toLowerCase();
 
     const user = await this.userModel.findOne(query);
 
@@ -125,7 +158,7 @@ export class AuthService {
   }
 
   async forgotPasswordEmail(forgotPasswordDto: ForgotPasswordEmailDto) {
-    const user = await this.userModel.findOne({ email: forgotPasswordDto.email });
+    const user = await this.userModel.findOne({ email: forgotPasswordDto.email.toLowerCase() });
 
     if (!user) {
       throw new NotFoundException('Email not found');
@@ -136,12 +169,12 @@ export class AuthService {
     const hashedOtp = await bcrypt.hash(otp, 10);
 
     // Delete old OTP requests
-    await this.passwordResetModel.deleteMany({ email: forgotPasswordDto.email });
+    await this.passwordResetModel.deleteMany({ email: forgotPasswordDto.email.toLowerCase() });
 
     // Save new OTP
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     await this.passwordResetModel.create({
-      email: forgotPasswordDto.email,
+      email: forgotPasswordDto.email.toLowerCase(),
       token: hashedOtp,
       expiresAt,
     });
@@ -157,7 +190,7 @@ export class AuthService {
 
   async resetPasswordEmail(resetPasswordDto: ResetPasswordEmailDto) {
     const resetRecord = await this.passwordResetModel.findOne({
-      email: resetPasswordDto.email,
+      email: resetPasswordDto.email.toLowerCase(),
     });
 
     if (!resetRecord) {

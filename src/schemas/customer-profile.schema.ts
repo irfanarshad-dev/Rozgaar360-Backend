@@ -9,6 +9,25 @@ export class CustomerProfile extends Document {
   @Prop()
   address?: string;
 
+  @Prop({
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point',
+    },
+    coordinates: {
+      type: [Number],
+      default: [0, 0],
+    },
+  })
+  location?: {
+    type: string;
+    coordinates: number[];
+  };
+
+  @Prop()
+  locationUpdatedAt?: Date;
+
   @Prop({ default: 0 })
   totalJobsPosted: number;
 
@@ -18,3 +37,4 @@ export class CustomerProfile extends Document {
 
 export const CustomerProfileSchema = SchemaFactory.createForClass(CustomerProfile);
 CustomerProfileSchema.index({ userId: 1 });
+CustomerProfileSchema.index({ location: '2dsphere' });

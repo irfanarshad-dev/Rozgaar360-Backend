@@ -20,7 +20,7 @@ export class StripePaymentService {
               name: 'Service Booking Payment',
               description: `Payment for booking #${bookingId}`,
             },
-            unit_amount: Math.round(amount * 100), // Convert to cents
+            unit_amount: Math.round(amount * 100),
           },
           quantity: 1,
         },

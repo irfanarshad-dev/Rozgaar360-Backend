@@ -7,10 +7,12 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
+import { NotificationService } from '../services/notification.service';
+import { NotificationType } from '../schemas/notification.schema';
 import { JwtService } from '@nestjs/jwt';
 
 @WebSocketGateway({
-  cors: { origin: 'http://localhost:3000', credentials: true },
+  cors: { origin: ['http://localhost:3000', 'http://127.0.0.1:3000'], credentials: true },
   namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -20,17 +22,40 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   constructor(
     private chatService: ChatService,
+    private notificationService: NotificationService,
     private jwtService: JwtService,
   ) {}
 
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth.token;
+      if (!token) {
+        console.log('[ChatGateway] No token provided, disconnecting client');
+        client.disconnect();
+        return;
+      }
+      
+      console.log('[ChatGateway] Attempting to verify token...');
       const decoded = this.jwtService.verify(token);
-      client.data.userId = decoded.sub;
-      this.userSockets.set(decoded.sub, client.id);
-      this.server.emit('user-online', { userId: decoded.sub });
+      const userId = decoded.sub || decoded._id || decoded.userId;
+      
+      if (!userId) {
+        console.log('[ChatGateway] No userId in token, disconnecting client');
+        client.disconnect();
+        return;
+      }
+      
+      client.data.userId = userId;
+      this.userSockets.set(userId, client.id);
+      
+      // Join private user room for notifications
+      const userRoom = `user-${userId}`;
+      client.join(userRoom);
+      console.log(`[ChatGateway] User ${userId} joined private room ${userRoom}`);
+
+      this.server.emit('user-online', { userId });
     } catch (err) {
+      console.error('[ChatGateway] ✗ Connection error:', err.message);
       client.disconnect();
     }
   }
@@ -45,7 +70,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('join-conversation')
   async handleJoinConversation(client: Socket, data: { conversationId: string }) {
-    client.join(`conversation-${data.conversationId}`);
+    const roomName = `conversation-${data.conversationId}`;
+    console.log('[ChatGateway] ========================================');
+    console.log('[ChatGateway] JOIN CONVERSATION REQUEST');
+    console.log('[ChatGateway] User:', client.data.userId);
+    console.log('[ChatGateway] Room:', roomName);
+    console.log('[ChatGateway] Socket ID:', client.id);
+    
+    client.join(roomName);
+    console.log('[ChatGateway] User joined room successfully');
+    
+    // Send confirmation back to client
+    client.emit('joined-conversation', { conversationId: data.conversationId, success: true });
+    
+    // Log all clients in the room
+    const socketsInRoom = await this.server.in(roomName).fetchSockets();
+    console.log('[ChatGateway] Total clients in room:', socketsInRoom.length);
+    socketsInRoom.forEach(s => {
+      console.log('[ChatGateway]   - User:', s.data.userId, 'Socket:', s.id);
+    });
+    console.log('[ChatGateway] ========================================');
+    
     await this.chatService.resetUnreadCount(data.conversationId, client.data.userId);
   }
 
@@ -54,23 +99,83 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client: Socket,
     data: { conversationId: string; text: string; fileUrls?: string[] },
   ) {
+    const userId = client.data.userId;
+    const roomName = `conversation-${data.conversationId}`;
+
+    console.log('[ChatGateway] send-message from:', userId, 'to room:', roomName);
+
+    // Ensure sender is joined to the room (handles reconnects)
+    const rooms = client.rooms;
+    if (!rooms.has(roomName)) {
+      client.join(roomName);
+      console.log('[ChatGateway] Auto-joined sender to room:', roomName);
+    }
+
+    const conversation = await this.chatService.getConversationById(data.conversationId);
+    const recipientId = String(conversation.workerId._id) === String(userId) 
+      ? String(conversation.customerId._id) 
+      : String(conversation.workerId._id);
+
     const message = await this.chatService.saveMessage(
       data.conversationId,
-      client.data.userId,
+      userId,
       data.text,
       data.fileUrls,
     );
 
+    // Increment unread count for recipient
+    const currentUnread = conversation.unreadCount?.get(recipientId) || 0;
+    await this.chatService.updateUnreadCount(data.conversationId, recipientId, currentUnread + 1);
+
+    // Check if recipient is currently viewing this conversation
+    // ✓ If both online in same room: recipientIsInRoom = true → NO notification
+    // ✗ If recipient offline or on another tab: recipientIsInRoom = false → SHOW notification instantly
+    const socketsInRoom = await this.server.in(roomName).fetchSockets();
+    const recipientIsInRoom = socketsInRoom.some(
+      (socket) => String(socket.data.userId) === recipientId,
+    );
+
+    // Create bell notification ONLY if recipient is not actively viewing this conversation
+    if (!recipientIsInRoom) {
+      const senderUser = String(conversation.workerId._id) === String(userId)
+        ? (conversation.workerId as any)
+        : (conversation.customerId as any);
+      const recipientUser = recipientId === String(conversation.customerId._id)
+        ? (conversation.customerId as any)
+        : (conversation.workerId as any);
+      const recipientRole = recipientUser?.role || 'customer';
+      const chatUrl = recipientRole === 'worker' ? '/worker/chat' : '/customer/chat';
+
+      await this.notificationService.createNotification({
+        userId: recipientId,
+        type: NotificationType.NEW_MESSAGE,
+        title: 'New Message',
+        message: `You have a new message from ${senderUser.name || 'Someone'}`,
+        conversationId: data.conversationId,
+        actionUrl: chatUrl,
+      });
+    }
+
     const messageData = message.toObject();
-    this.server.to(`conversation-${data.conversationId}`).emit('message-received', {
-      _id: messageData._id,
-      conversationId: messageData.conversationId,
-      senderId: messageData.senderId,
+
+    const messagePayload = {
+      _id: String(messageData._id),
+      conversationId: String(data.conversationId),
+      senderId: String(messageData.senderId),
       text: messageData.text,
-      fileUrls: messageData.fileUrls,
+      fileUrls: messageData.fileUrls || [],
       status: 'sent',
       createdAt: messageData.createdAt || new Date(),
-    });
+    };
+
+    // Emit to conversation room (for active chat window)
+    this.server.to(roomName).emit('message-received', messagePayload);
+
+    // Notify both users' sidebars
+    this.server.to(`user-${userId}`).emit('conversation-updated', { conversationId: data.conversationId });
+    this.server.to(`user-${recipientId}`).emit('conversation-updated', { conversationId: data.conversationId });
+
+    console.log('[ChatGateway] Done.');
   }
 
   @SubscribeMessage('typing')

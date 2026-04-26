@@ -12,15 +12,15 @@ export class ChatService {
   ) {}
 
   async getOrCreateConversation(jobId: string, workerId: string, customerId: string) {
+    // First try to find existing conversation between worker and customer (regardless of jobId)
     let conversation = await this.conversationModel.findOne({
-      jobId: new Types.ObjectId(jobId),
       workerId: new Types.ObjectId(workerId),
       customerId: new Types.ObjectId(customerId),
     });
 
     if (!conversation) {
       conversation = await this.conversationModel.create({
-        jobId: new Types.ObjectId(jobId),
+        jobId: jobId ? new Types.ObjectId(jobId) : null,
         workerId: new Types.ObjectId(workerId),
         customerId: new Types.ObjectId(customerId),
         unreadCount: new Map(),
@@ -48,12 +48,20 @@ export class ChatService {
   }
 
   async getMessages(conversationId: string, limit = 50, skip = 0) {
-    return this.messageModel
+    const messages = await this.messageModel
       .find({ conversationId: new Types.ObjectId(conversationId) })
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 }) // Oldest first
       .limit(limit)
       .skip(skip)
       .lean();
+    
+    // Convert ObjectIds to strings
+    return messages.map(msg => ({
+      ...msg,
+      _id: msg._id.toString(),
+      conversationId: msg.conversationId.toString(),
+      senderId: msg.senderId.toString(),
+    }));
   }
 
   async markMessageAsSeen(messageId: string) {
@@ -65,7 +73,10 @@ export class ChatService {
   }
 
   async getConversationById(conversationId: string) {
-    const conversation = await this.conversationModel.findById(conversationId);
+    const conversation = await this.conversationModel
+      .findById(conversationId)
+      .populate('workerId', 'name email')
+      .populate('customerId', 'name email');
     if (!conversation) throw new NotFoundException('Conversation not found');
     return conversation;
   }
@@ -78,6 +89,8 @@ export class ChatService {
           { customerId: new Types.ObjectId(userId) },
         ],
       })
+      .populate('workerId', 'name email')
+      .populate('customerId', 'name email')
       .sort({ lastMessageTime: -1 })
       .lean();
   }

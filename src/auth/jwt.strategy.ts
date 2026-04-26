@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 
 interface JwtPayload {
@@ -12,9 +13,11 @@ interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private authService: AuthService) {
-    const secret = process.env.JWT_SECRET || 'your_super_secret_jwt_key_change_in_production';
-    console.log('JWT Strategy initialized with secret:', secret);
+  constructor(
+    private authService: AuthService,
+    private configService: ConfigService,
+  ) {
+    const secret = configService.get<string>('JWT_SECRET') || 'your_super_secret_jwt_key_change_in_production';
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -35,6 +38,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
+    
     return user;
   }
 }

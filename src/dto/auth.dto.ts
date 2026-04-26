@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsNumber, MinLength, Matches, IsEmail } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNumber, MinLength, Matches, IsEmail, IsBoolean, Min, Max, IsDateString, IsArray } from 'class-validator';
 
 export class RegisterDto {
   @IsString()
@@ -33,10 +33,75 @@ export class RegisterDto {
   @IsNumber()
   experience?: number;
 
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  workerLatitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  workerLongitude?: number;
+
+  @IsOptional()
+  @IsString()
+  workerAddress?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isAvailableNow?: boolean;
+
+  @IsOptional()
+  @IsString()
+  workStartTime?: string;
+
+  @IsOptional()
+  @IsString()
+  workEndTime?: string;
+
+  @IsOptional()
+  @IsDateString()
+  nextAvailableAt?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  responseRate?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  serviceRadiusKm?: number;
+
+  @IsOptional()
+  @IsArray()
+  weeklySchedule?: Array<{
+    day: string;
+    enabled: boolean;
+    start: string;
+    end: string;
+  }>;
+
   // Customer fields
   @IsOptional()
   @IsString()
   address?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  customerLatitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  customerLongitude?: number;
 }
 
 export class LoginDto {
@@ -76,6 +141,71 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  workerLatitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  workerLongitude?: number;
+
+  @IsOptional()
+  @IsString()
+  workerAddress?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isAvailableNow?: boolean;
+
+  @IsOptional()
+  @IsString()
+  workStartTime?: string;
+
+  @IsOptional()
+  @IsString()
+  workEndTime?: string;
+
+  @IsOptional()
+  @IsDateString()
+  nextAvailableAt?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  responseRate?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  serviceRadiusKm?: number;
+
+  @IsOptional()
+  @IsArray()
+  weeklySchedule?: Array<{
+    day: string;
+    enabled: boolean;
+    start: string;
+    end: string;
+  }>;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  customerLatitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  customerLongitude?: number;
 }
 
 export class ForgotPasswordDto {

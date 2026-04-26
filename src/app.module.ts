@@ -18,12 +18,14 @@ import { Test, TestSchema } from './schemas/test.schema';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     MongooseModule.forRoot(process.env.MONGODB_URI!),
     MongooseModule.forFeature([{ name: Test.name, schema: TestSchema }]),
     ThrottlerModule.forRoot([{
       ttl: 60000,
-      limit: 10,
+      limit: 100,
     }]),
     AuthModule,
     UsersModule,

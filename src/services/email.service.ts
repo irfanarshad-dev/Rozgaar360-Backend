@@ -105,4 +105,52 @@ export class EmailService {
       return false;
     }
   }
+
+  async sendChatNotification(to: string, name: string, senderName: string, messageText: string): Promise<boolean> {
+    try {
+      const preview = messageText.length > 100 ? `${messageText.slice(0, 100)}...` : messageText;
+      const mailOptions = {
+        from: `"Rozgaar360" <${process.env.EMAIL_USER}>`,
+        to,
+        subject: `New message from ${senderName} on Rozgaar360`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #22c55e 0%, #14b8a6 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">New Message Alert</h1>
+            </div>
+            <div style="padding: 40px; background: #f9fafb;">
+              <h2 style="color: #1f2937;">Hello ${name},</h2>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                You have a new message from <strong>${senderName}</strong> on Rozgaar360.
+              </p>
+              <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                <p style="color: #6b7280; font-size: 14px; margin: 0 0 10px 0;">Message preview:</p>
+                <p style="color: #111827; font-size: 16px; line-height: 1.7; margin: 0;">${preview || 'No text content.'}</p>
+              </div>
+              <p style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                Open the chat in your Rozgaar360 dashboard to reply and continue the conversation.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="http://localhost:3000/customer/chat" style="background: #22c55e; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                  View Message
+                </a>
+              </div>
+            </div>
+            <div style="background: #1f2937; padding: 20px; text-align: center;">
+              <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                © ${new Date().getFullYear()} Rozgaar360. All rights reserved.
+              </p>
+            </div>
+          </div>
+        `,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`✅ Chat notification email sent to ${to}`);
+      return true;
+    } catch (error) {
+      console.error('❌ Chat notification email failed:', error.message);
+      return false;
+    }
+  }
 }

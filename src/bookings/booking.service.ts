@@ -118,13 +118,23 @@ export class BookingService {
       throw new NotFoundException('Booking not found');
     }
 
-    const customerIdStr = typeof booking.customerId === 'object' && booking.customerId._id 
-      ? booking.customerId._id.toString() 
-      : booking.customerId.toString();
-    
-    const workerIdStr = typeof booking.workerId === 'object' && booking.workerId._id 
-      ? booking.workerId._id.toString() 
-      : booking.workerId.toString();
+    const extractId = (value: any): string | null => {
+      if (!value) return null;
+      if (typeof value === 'object' && value._id) return String(value._id);
+      return String(value);
+    };
+
+    const customerIdStr = extractId(booking.customerId);
+    const workerIdStr = extractId(booking.workerId);
+
+    if (!customerIdStr || !workerIdStr) {
+      console.error('[BookingService] Invalid booking references:', {
+        bookingId,
+        customerId: booking.customerId,
+        workerId: booking.workerId,
+      });
+      throw new NotFoundException('Booking has invalid user references');
+    }
 
     console.log('[BookingService] Access check - Customer:', customerIdStr, 'Worker:', workerIdStr, 'User:', userId);
 

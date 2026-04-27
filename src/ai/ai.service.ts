@@ -294,7 +294,15 @@ ${JSON.stringify(preference)}
 `;
 
     try {
-      const result = await model.generateContent(prompt);
+      // Prevent long upstream AI latency from causing frontend timeouts.
+      // If Gemini is slow, return deterministic fallback scores quickly.
+      const aiTimeoutMs = 12000;
+      const result = await Promise.race([
+        model.generateContent(prompt),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`AI jobs recommendation timeout after ${aiTimeoutMs}ms`)), aiTimeoutMs),
+        ),
+      ]) as any;
       const response = await result.response;
       const text = response.text();
       const parsed = this.extractJsonArray(text);

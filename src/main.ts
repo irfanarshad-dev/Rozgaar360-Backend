@@ -27,7 +27,7 @@ async function bootstrap() {
   
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
   
-  const port = process.env.PORT ?? 3001;
+  const port = process.env.PORT ?? 8080;
   await app.listen(port);
   console.log(`
     ✅ Backend running on port ${port}

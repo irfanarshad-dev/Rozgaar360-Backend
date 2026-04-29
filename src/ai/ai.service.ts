@@ -19,7 +19,7 @@ export class AIService {
   async recommendWorkers(query: string, workers: any[]) {
     if (!this.genAI) return []; // Fallback is handled by RecommendationsService
 
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const workerData = workers.map(w => ({
       id: w.id,
@@ -199,7 +199,7 @@ export class AIService {
 
     if (!this.genAI) return fallbackSorted;
 
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const prompt = `
 You are an intelligent job recommendation engine for a marketplace platform.
 

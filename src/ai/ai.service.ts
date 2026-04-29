@@ -19,7 +19,7 @@ export class AIService {
   async recommendWorkers(query: string, workers: any[]) {
     if (!this.genAI) return []; // Fallback is handled by RecommendationsService
 
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+    const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const workerData = workers.map(w => ({
       id: w.id,

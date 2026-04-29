@@ -199,7 +199,7 @@ export class AIService {
 
     if (!this.genAI) return fallbackSorted;
 
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+    const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const prompt = `
 You are an intelligent job recommendation engine for a marketplace platform.
 

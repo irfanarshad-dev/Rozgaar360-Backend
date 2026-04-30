@@ -102,6 +102,21 @@ export class BookingService {
       .lean();
   }
 
+  async getAvailableJobs(skill?: string) {
+    const query: any = { status: BookingStatus.PENDING };
+    
+    if (skill) {
+      query.service = { $regex: new RegExp(skill, 'i') };
+    }
+
+    return this.bookingModel
+      .find(query)
+      .populate('customerId', 'name phone profilePicture city')
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+  }
+
   async getBookingById(bookingId: string, userId: string) {
     console.log('[BookingService] Getting booking:', bookingId, 'for user:', userId);
     
@@ -127,18 +142,25 @@ export class BookingService {
     const customerIdStr = extractId(booking.customerId);
     const workerIdStr = extractId(booking.workerId);
 
-    if (!customerIdStr || !workerIdStr) {
-      console.error('[BookingService] Invalid booking references:', {
+    if (!customerIdStr) {
+      console.error('[BookingService] Invalid booking customer reference:', {
         bookingId,
         customerId: booking.customerId,
-        workerId: booking.workerId,
       });
-      throw new NotFoundException('Booking has invalid user references');
+      throw new NotFoundException('Booking has invalid customer reference');
     }
 
-    console.log('[BookingService] Access check - Customer:', customerIdStr, 'Worker:', workerIdStr, 'User:', userId);
+    console.log('[BookingService] Access check - Customer:', customerIdStr, 'Worker:', workerIdStr, 'User:', userId, 'Status:', booking.status);
 
-    if (customerIdStr !== userId && workerIdStr !== userId) {
+    // Allow access if:
+    // 1. User is the customer
+    // 2. User is the assigned worker
+    // 3. Booking is pending (for job opportunities - any worker can view)
+    const isCustomer = customerIdStr === userId;
+    const isAssignedWorker = workerIdStr && workerIdStr === userId;
+    const isPendingJob = booking.status === BookingStatus.PENDING;
+
+    if (!isCustomer && !isAssignedWorker && !isPendingJob) {
       throw new ForbiddenException('Access denied');
     }
 

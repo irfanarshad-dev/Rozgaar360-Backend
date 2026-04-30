@@ -26,6 +26,14 @@ export class BookingController {
     return [];
   }
 
+  @Get('available-jobs')
+  async getAvailableJobs(@Request() req, @Query('skill') skill?: string) {
+    if (req.user.role !== 'worker') {
+      return [];
+    }
+    return this.bookingService.getAvailableJobs(skill);
+  }
+
   @Get(':id')
   async getBookingById(@Param('id') id: string, @Request() req) {
     const userId = req.user._id.toString();

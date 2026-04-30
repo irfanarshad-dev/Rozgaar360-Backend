@@ -1,25 +1,54 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 @Injectable()
 export class AIService {
   private readonly logger = new Logger(AIService.name);
-  private genAI: GoogleGenerativeAI;
+  private apiKey: string;
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>('GOOGLE_AI_API_KEY');
-    if (apiKey) {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-    } else {
-      this.logger.warn('GOOGLE_AI_API_KEY is not set. AI features will be disabled.');
+    this.apiKey = this.configService.get<string>('OPENROUTER_API_KEY') || '';
+    if (!this.apiKey) {
+      this.logger.warn('OPENROUTER_API_KEY is not set. AI features will be disabled.');
     }
   }
 
-  async recommendWorkers(query: string, workers: any[]) {
-    if (!this.genAI) return []; // Fallback is handled by RecommendationsService
+  private async callOpenRouter(prompt: string): Promise<string> {
+    const response = await fetch(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://rozgaar360.app',
+          'X-Title': 'Rozgaar360',
+        },
+        body: JSON.stringify({
+          model: 'openai/gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      }
+    );
 
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    if (!response.ok) {
+      const errorText = await response.text();
+      this.logger.error(`OpenRouter HTTP error ${response.status}: ${errorText}`);
+      throw new Error(`OpenRouter HTTP ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    this.logger.log('OpenRouter response: ' + JSON.stringify(data));
+
+    if (!data.choices || !data.choices[0]) {
+      throw new Error(`OpenRouter error: ${JSON.stringify(data)}`);
+    }
+
+    return data.choices[0].message.content;
+  }
+
+  async recommendWorkers(query: string, workers: any[]) {
+    if (!this.apiKey) return [];
 
     const workerData = workers.map(w => ({
       id: w.id,
@@ -52,7 +81,7 @@ export class AIService {
       4. Return a JSON array of the top 5 most suitable workers.
       5. For each worker, provide an "aiReason" explaining why their skill is the right one for this specific job.
       
-      OUTPUT FORMAT (Strict JSON):
+      OUTPUT FORMAT (Strict JSON only, no extra text):
       [
         { "id": "worker_id", "aiReason": "Reason here", "matchScore": 95 },
         ...
@@ -60,15 +89,20 @@ export class AIService {
     `;
 
     try {
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-      
-      // Clean up string in case AI adds markdown
+      const text = await this.callOpenRouter(prompt);
+      this.logger.log('Raw AI response for workers: ' + text);
       const cleanJson = text.replace(/```json|```/g, '').trim();
+      const firstBracket = cleanJson.indexOf('[');
+      const lastBracket = cleanJson.lastIndexOf(']');
+      
+      if (firstBracket !== -1 && lastBracket !== -1) {
+        const jsonStr = cleanJson.slice(firstBracket, lastBracket + 1);
+        return JSON.parse(jsonStr);
+      }
+      
       return JSON.parse(cleanJson);
     } catch (error) {
-      this.logger.error('Error getting AI recommendations:', error);
+      this.logger.error('Error getting AI worker recommendations:', error);
       return [];
     }
   }
@@ -197,15 +231,12 @@ export class AIService {
         .slice(0, 10);
     })();
 
-    if (!this.genAI) return fallbackSorted;
+    if (!this.apiKey) return fallbackSorted;
 
-    const model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const prompt = `
 You are an intelligent job recommendation engine for a marketplace platform.
 
 Your task is to analyze a worker profile and a list of available jobs, then return the best matching jobs ranked by relevance.
-
--------------------------------------
 
 INPUT:
 
@@ -219,95 +250,37 @@ Worker Profile:
 Jobs List:
 ${JSON.stringify(normalizedJobs, null, 2)}
 
-Each job contains:
-- id
-- title
-- description
-- category
-- requiredSkills
-- location
-- budget
-- urgency (low, medium, high)
-
--------------------------------------
-
 TASK:
+Calculate match score (0-100) for each job based on:
+- Skill Match (40%), Location (20%), Budget (15%), Urgency (10%), Rating/Experience (10%), Availability (5%)
 
-1. For EACH job, calculate a match score (0–100) based on:
-
-- Skill Match (40%)
-  → Compare worker skills with requiredSkills
-
-- Location Proximity (20%)
-  → Closer jobs should score higher
-
-- Budget Suitability (15%)
-  → Jobs meeting or exceeding expectations rank higher
-
-- Urgency (10%)
-  → High urgency jobs should be boosted
-
-- Worker Rating & Experience (10%)
-  → Higher rating/experience increases match
-
-- Availability (5%)
-  → If worker is available now, increase score
-
-2. Rank all jobs from highest to lowest score
-
-3. Return ONLY top 10 jobs
-
--------------------------------------
-
-OUTPUT FORMAT (STRICT JSON):
-
+Return ONLY top 10 jobs as strict JSON array:
 [
   {
     "jobId": "string",
     "matchScore": number,
     "matchPercentage": "85%",
-    "reason": [
-      "Matches your skills in AC repair",
-      "Located 2 km from you",
-      "High budget job",
-      "Urgent requirement"
-    ],
+    "reason": ["reason1", "reason2"],
     "priorityTag": "Best Match | Nearby | High Paying | Urgent"
   }
 ]
 
--------------------------------------
-
-RULES:
-
-- Do NOT return explanations outside JSON
-- Keep reasons short and user-friendly
-- Ensure scores are realistic and varied
-- Prefer highly relevant jobs over random ones
-- If skills do not match at all, give very low score
-- Use the worker's profile and the job list exactly as provided
-
-${preference ? `
-Extra worker preference note:
-${JSON.stringify(preference)}
-` : ''}
+${preference ? `Worker preference: ${JSON.stringify(preference)}` : ''}
 `;
 
     try {
-      // Prevent long upstream AI latency from causing frontend timeouts.
-      // If Gemini is slow, return deterministic fallback scores quickly.
       const aiTimeoutMs = 12000;
-      const result = await Promise.race([
-        model.generateContent(prompt),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`AI jobs recommendation timeout after ${aiTimeoutMs}ms`)), aiTimeoutMs),
+      const text = await Promise.race([
+        this.callOpenRouter(prompt),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error(`AI timeout after ${aiTimeoutMs}ms`)), aiTimeoutMs),
         ),
-      ]) as any;
-      const response = await result.response;
-      const text = response.text();
-      const parsed = this.extractJsonArray(text);
+      ]);
 
+      this.logger.log('Raw AI response for jobs: ' + text);
+      const parsed = this.extractJsonArray(text);
       if (!Array.isArray(parsed)) {
+        this.logger.warn('AI response is not an array, using fallback');
         return fallbackSorted;
       }
 
@@ -324,6 +297,7 @@ ${JSON.stringify(preference)}
         .slice(0, 10);
     } catch (error) {
       this.logger.error('Error getting AI job recommendations:', error);
+      this.logger.warn('Falling back to deterministic job recommendations');
       return fallbackSorted;
     }
   }

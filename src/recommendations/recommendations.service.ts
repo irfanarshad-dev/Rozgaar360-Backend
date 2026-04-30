@@ -259,6 +259,10 @@ export class RecommendationsService {
   }
 
   async getAIRecommendations(query: string, city?: string, lat?: number, lng?: number, radiusKm = DEFAULT_RADIUS_KM) {
+    if (!query || query.trim().length === 0) {
+      return [];
+    }
+
     const baseWorkers = await this.getRecommendations(city, undefined, 60, lat, lng, radiusKm);
 
     if (baseWorkers.length === 0) {
@@ -268,7 +272,15 @@ export class RecommendationsService {
     const aiMatches = await this.aiService.recommendWorkers(query, baseWorkers);
 
     if (!Array.isArray(aiMatches) || aiMatches.length === 0) {
-      return [];
+      return baseWorkers
+        .map((worker: any) => ({
+          ...worker,
+          aiReason: 'Good fit based on skill relevance and platform performance.',
+          aiMatchScore: worker.deterministicScore,
+          matchScore: worker.deterministicScore,
+        }))
+        .sort((a: any, b: any) => b.matchScore - a.matchScore)
+        .slice(0, 10);
     }
 
     const aiMap = new Map(aiMatches.map((match: any) => [String(match.id), match]));

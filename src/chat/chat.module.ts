@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MulterModule } from '@nestjs/platform-express';
 import { ChatService } from './chat.service';
 import { ChatGateway } from './chat.gateway';
 import { ChatController } from './chat.controller';
@@ -22,6 +23,11 @@ import { NotificationModule } from '../notifications/notification.module';
         secret: configService.get<string>('JWT_SECRET') || 'your_super_secret_jwt_key_change_in_production',
       }),
       inject: [ConfigService],
+    }),
+    MulterModule.register({
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB
+      },
     }),
     NotificationModule,
   ],

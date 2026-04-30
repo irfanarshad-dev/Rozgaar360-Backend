@@ -97,7 +97,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('send-message')
   async handleSendMessage(
     client: Socket,
-    data: { conversationId: string; text: string; fileUrls?: string[] },
+    data: { conversationId: string; text: string; fileUrls?: string[]; messageType?: string; fileUrl?: string; fileName?: string; fileSize?: number; fileType?: string; voiceUrl?: string; voiceDuration?: number },
   ) {
     const userId = client.data.userId;
     const roomName = `conversation-${data.conversationId}`;
@@ -116,11 +116,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       ? String(conversation.customerId._id) 
       : String(conversation.workerId._id);
 
+    const messageData: any = {};
+    if (data.messageType) messageData.messageType = data.messageType;
+    if (data.fileUrl) messageData.fileUrl = data.fileUrl;
+    if (data.fileName) messageData.fileName = data.fileName;
+    if (data.fileSize) messageData.fileSize = data.fileSize;
+    if (data.fileType) messageData.fileType = data.fileType;
+    if (data.voiceUrl) messageData.voiceUrl = data.voiceUrl;
+    if (data.voiceDuration) messageData.voiceDuration = data.voiceDuration;
+
     const message = await this.chatService.saveMessage(
       data.conversationId,
       userId,
-      data.text,
+      data.text || '',
       data.fileUrls,
+      messageData,
     );
 
     // Increment unread count for recipient
@@ -128,8 +138,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.chatService.updateUnreadCount(data.conversationId, recipientId, currentUnread + 1);
 
     // Check if recipient is currently viewing this conversation
-    // ✓ If both online in same room: recipientIsInRoom = true → NO notification
-    // ✗ If recipient offline or on another tab: recipientIsInRoom = false → SHOW notification instantly
     const socketsInRoom = await this.server.in(roomName).fetchSockets();
     const recipientIsInRoom = socketsInRoom.some(
       (socket) => String(socket.data.userId) === recipientId,
@@ -156,16 +164,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
 
-    const messageData = message.toObject();
+    const messageData2 = message.toObject();
 
     const messagePayload = {
-      _id: String(messageData._id),
+      _id: String(messageData2._id),
       conversationId: String(data.conversationId),
-      senderId: String(messageData.senderId),
-      text: messageData.text,
-      fileUrls: messageData.fileUrls || [],
+      senderId: String(messageData2.senderId),
+      text: messageData2.text || '',
+      fileUrls: messageData2.fileUrls || [],
       status: 'sent',
-      createdAt: messageData.createdAt || new Date(),
+      createdAt: messageData2.createdAt || new Date(),
+      messageType: messageData2.messageType,
+      fileUrl: messageData2.fileUrl,
+      fileName: messageData2.fileName,
+      fileSize: messageData2.fileSize,
+      fileType: messageData2.fileType,
+      voiceUrl: messageData2.voiceUrl,
+      voiceDuration: messageData2.voiceDuration,
+      reactions: messageData2.reactions || [],
+      readBy: messageData2.readBy || [],
     };
 
     // Emit to conversation room (for active chat window)
@@ -213,5 +230,52 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('leave-conversation')
   handleLeaveConversation(client: Socket, data: { conversationId: string }) {
     client.leave(`conversation-${data.conversationId}`);
+  }
+
+  @SubscribeMessage('message-reaction')
+  async handleMessageReaction(
+    client: Socket,
+    data: { messageId: string; emoji: string; conversationId: string },
+  ) {
+    const userId = client.data.userId;
+    const message = await this.chatService.addReaction(data.messageId, userId, data.emoji);
+    
+    const roomName = `conversation-${data.conversationId}`;
+    this.server.to(roomName).emit('reaction-updated', {
+      messageId: data.messageId,
+      reactions: message.reactions,
+    });
+  }
+
+  @SubscribeMessage('messages-read')
+  async handleMessagesRead(
+    client: Socket,
+    data: { conversationId: string },
+  ) {
+    const userId = client.data.userId;
+    const result = await this.chatService.markMessagesAsRead(data.conversationId, userId);
+    
+    const roomName = `conversation-${data.conversationId}`;
+    this.server.to(roomName).emit('messages-read', {
+      conversationId: data.conversationId,
+      userId,
+      count: result.count,
+    });
+  }
+
+  @SubscribeMessage('delete-message')
+  async handleDeleteMessage(
+    client: Socket,
+    data: { messageId: string; conversationId: string; deleteForEveryone: boolean },
+  ) {
+    const userId = client.data.userId;
+    const result = await this.chatService.deleteMessage(data.messageId, userId, data.deleteForEveryone);
+    
+    const roomName = `conversation-${data.conversationId}`;
+    this.server.to(roomName).emit('message-deleted', {
+      messageId: data.messageId,
+      deleteForEveryone: data.deleteForEveryone,
+      deletedBy: userId,
+    });
   }
 }

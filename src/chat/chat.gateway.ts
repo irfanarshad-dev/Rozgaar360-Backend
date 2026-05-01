@@ -12,7 +12,7 @@ import { NotificationType } from '../schemas/notification.schema';
 import { JwtService } from '@nestjs/jwt';
 
 @WebSocketGateway({
-  cors: { origin: ['http://localhost:3000', 'http://127.0.0.1:3000'], credentials: true },
+  cors: { origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://www.rozgaar360.app'], credentials: true },
   namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {

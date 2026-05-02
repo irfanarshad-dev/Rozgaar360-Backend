@@ -258,7 +258,7 @@ export class RecommendationsService {
     return nearestWorkers;
   }
 
-  async getAIRecommendations(query: string, city?: string, lat?: number, lng?: number, radiusKm = DEFAULT_RADIUS_KM) {
+  async getAIRecommendations(query: string, city?: string, lat?: number, lng?: number, radiusKm = DEFAULT_RADIUS_KM, language = 'en') {
     if (!query || query.trim().length === 0) {
       return [];
     }
@@ -269,7 +269,7 @@ export class RecommendationsService {
       return [];
     }
 
-    const aiMatches = await this.aiService.recommendWorkers(query, baseWorkers);
+    const aiMatches = await this.aiService.recommendWorkers(query, baseWorkers, language);
 
     if (!Array.isArray(aiMatches) || aiMatches.length === 0) {
       return baseWorkers

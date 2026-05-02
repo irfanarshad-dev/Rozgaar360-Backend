@@ -89,7 +89,9 @@ export class ChatController {
         workerId: workerIdStr,
         customerId: customerIdStr,
         workerName: typeof conversation.workerId === 'object' ? (conversation.workerId as any).name : 'Worker',
+        workerProfilePicture: typeof conversation.workerId === 'object' ? (conversation.workerId as any).profilePicture : '/user.png',
         customerName: typeof conversation.customerId === 'object' ? (conversation.customerId as any).name : 'Customer',
+        customerProfilePicture: typeof conversation.customerId === 'object' ? (conversation.customerId as any).profilePicture : '/user.png',
       }
     };
   }

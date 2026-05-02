@@ -47,7 +47,7 @@ export class AIService {
     return data.choices[0].message.content;
   }
 
-  async recommendWorkers(query: string, workers: any[]) {
+  async recommendWorkers(query: string, workers: any[], language = 'en') {
     if (!this.apiKey) return [];
 
     const workerData = workers.map(w => ({
@@ -60,11 +60,18 @@ export class AIService {
     }));
 
     const categories = ['Plumber', 'Electrician', 'Carpenter', 'Tailor', 'Painter', 'Cleaner', 'Mechanic', 'Cook', 'Driver', 'AC Repair'];
+    const isUrdu = String(language || '').toLowerCase().startsWith('ur');
+    const responseLanguageInstruction = isUrdu
+      ? 'Write the aiReason field in clear Urdu. Keep the JSON keys exactly the same. Do not use English unless it is a proper name or technical term.'
+      : 'Write the aiReason field in clear English. Keep the JSON keys exactly the same.';
 
     const prompt = `
       You are an expert recruitment assistant for "Rozgaar360", a professional service platform in Pakistan.
       
       CUSTOMER QUERY: "${query}"
+      
+      RESPONSE LANGUAGE: ${isUrdu ? 'Urdu' : 'English'}
+      ${responseLanguageInstruction}
       
       AVAILABLE CATEGORIES: ${categories.join(', ')}
       

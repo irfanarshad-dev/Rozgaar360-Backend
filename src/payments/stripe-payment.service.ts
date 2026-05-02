@@ -26,8 +26,8 @@ export class StripePaymentService {
         },
       ],
       mode: 'payment',
-      success_url: `http://localhost:3000/payment/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
-      cancel_url: `http://localhost:3000/payment/cancel?booking_id=${bookingId}`,
+      success_url: `https://www.rozgaar360.app/payment/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${bookingId}`,
+      cancel_url: `https://www.rozgaar360.app/payment/cancel?booking_id=${bookingId}`,
       metadata: {
         bookingId,
       },

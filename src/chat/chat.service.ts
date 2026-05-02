@@ -118,8 +118,8 @@ export class ChatService {
   async getConversationById(conversationId: string) {
     const conversation = await this.conversationModel
       .findById(conversationId)
-      .populate('workerId', 'name email')
-      .populate('customerId', 'name email');
+      .populate('workerId', 'name email profilePicture')
+      .populate('customerId', 'name email profilePicture');
     if (!conversation) throw new NotFoundException('Conversation not found');
     return conversation;
   }
@@ -132,8 +132,8 @@ export class ChatService {
           { customerId: new Types.ObjectId(userId) },
         ],
       })
-      .populate('workerId', 'name email')
-      .populate('customerId', 'name email')
+      .populate('workerId', 'name email profilePicture')
+      .populate('customerId', 'name email profilePicture')
       .sort({ lastMessageTime: -1 })
       .lean();
   }

@@ -40,11 +40,12 @@ export class RecommendationsController {
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
     @Query('radiusKm') radiusKm?: string,
+    @Query('language') language?: string,
   ) {
     const latNum = lat ? parseFloat(lat) : undefined;
     const lngNum = lng ? parseFloat(lng) : undefined;
     const radiusKmNum = radiusKm ? parseFloat(radiusKm) : undefined;
-    return this.recommendationsService.getAIRecommendations(query, city, latNum, lngNum, radiusKmNum);
+    return this.recommendationsService.getAIRecommendations(query, city, latNum, lngNum, radiusKmNum, language);
   }
 
   @Post('jobs/ai')

@@ -50,6 +50,17 @@ export class VerificationService implements OnModuleInit {
       throw new NotFoundException('Worker profile not found');
     }
 
+    // Check if CNIC already submitted and pending
+    if (workerProfile.cnicFrontUrl && workerProfile.cnicBackUrl) {
+      if (workerProfile.verificationStatus === VerificationStatus.PENDING) {
+        throw new BadRequestException('You have already submitted a request, please wait for any response.');
+      }
+      // Allow re-upload if rejected
+      if (workerProfile.verificationStatus === VerificationStatus.REJECTED) {
+        console.log('Re-uploading CNIC after rejection');
+      }
+    }
+
     if (!files.cnicFront || !files.cnicBack || !files.cnicFront[0] || !files.cnicBack[0]) {
       throw new BadRequestException('Both CNIC front and back images are required');
     }

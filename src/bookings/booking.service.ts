@@ -6,6 +6,7 @@ import { Conversation } from '../schemas/conversation.schema';
 import { User } from '../schemas/user.schema';
 import { CreateBookingDto, UpdateBookingStatusDto } from '../dto/booking.dto';
 import { NotificationService } from '../services/notification.service';
+import { EmailService } from '../services/email.service';
 import { NotificationType } from '../schemas/notification.schema';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class BookingService {
     @InjectModel(Conversation.name) private conversationModel: Model<Conversation>,
     @InjectModel(User.name) private userModel: Model<User>,
     private notificationService: NotificationService,
+    private emailService: EmailService,
   ) {}
 
   async createBooking(customerId: string, createBookingDto: CreateBookingDto) {
@@ -66,6 +68,23 @@ export class BookingService {
         date: createBookingDto.date,
       },
     });
+
+    // Send email to worker
+    try {
+      if (worker.email) {
+        await this.emailService.sendBookingCreated(
+          worker.email,
+          customer?.name || 'Customer',
+          worker.name,
+          createBookingDto.service,
+          new Date(createBookingDto.date).toLocaleDateString(),
+          (booking._id as any).toString()
+        );
+        console.log(`✅ Booking created email sent to worker: ${worker.email}`);
+      }
+    } catch (emailError) {
+      console.error('❌ Failed to send booking email:', emailError.message);
+    }
 
     return this.bookingModel
       .findById(booking._id)
@@ -197,6 +216,22 @@ export class BookingService {
         bookingId: bookingId,
         actionUrl: `/customer/bookings/${bookingId}`,
       });
+
+      // Send email to customer
+      try {
+        const customer = await this.userModel.findById(booking.customerId);
+        if (customer?.email) {
+          await this.emailService.sendBookingConfirmed(
+            customer.email,
+            customer.name,
+            booking.service,
+            bookingId
+          );
+          console.log(`✅ Booking confirmed email sent to customer: ${customer.email}`);
+        }
+      } catch (emailError) {
+        console.error('❌ Failed to send booking confirmed email:', emailError.message);
+      }
     }
 
     if (updateDto.status === 'in_progress') {
@@ -222,6 +257,22 @@ export class BookingService {
         bookingId: bookingId,
         actionUrl: `/customer/reviews/new/${bookingId}`,
       });
+
+      // Send email to customer
+      try {
+        const customer = await this.userModel.findById(booking.customerId);
+        if (customer?.email) {
+          await this.emailService.sendBookingCompleted(
+            customer.email,
+            customer.name,
+            booking.service,
+            bookingId
+          );
+          console.log(`✅ Booking completed email sent to customer: ${customer.email}`);
+        }
+      } catch (emailError) {
+        console.error('❌ Failed to send booking completed email:', emailError.message);
+      }
     }
 
     if (updateDto.status === 'cancelled') {

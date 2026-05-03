@@ -6,6 +6,7 @@ import { Booking, BookingSchema } from '../schemas/booking.schema';
 import { Conversation, ConversationSchema } from '../schemas/conversation.schema';
 import { User, UserSchema } from '../schemas/user.schema';
 import { NotificationModule } from '../notifications/notification.module';
+import { EmailService } from '../services/email.service';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { NotificationModule } from '../notifications/notification.module';
     NotificationModule,
   ],
   controllers: [BookingController],
-  providers: [BookingService],
+  providers: [BookingService, EmailService],
   exports: [BookingService],
 })
 export class BookingModule {}

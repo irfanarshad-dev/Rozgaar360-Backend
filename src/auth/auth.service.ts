@@ -42,6 +42,31 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
+    // Validate role-specific required fields
+    if (registerDto.role === 'worker') {
+      if (!registerDto.skill) {
+        throw new BadRequestException('Skill is required for workers');
+      }
+      if (registerDto.experience === undefined || registerDto.experience === null) {
+        throw new BadRequestException('Experience is required for workers');
+      }
+      if (!registerDto.workerAddress) {
+        throw new BadRequestException('Work address is required for workers');
+      }
+      if (!this.hasValidCoordinates(registerDto.workerLatitude, registerDto.workerLongitude)) {
+        throw new BadRequestException('Location is required for workers. Please share your location.');
+      }
+    }
+
+    if (registerDto.role === 'customer') {
+      if (!registerDto.address) {
+        throw new BadRequestException('Address is required for customers');
+      }
+      if (!this.hasValidCoordinates(registerDto.customerLatitude, registerDto.customerLongitude)) {
+        throw new BadRequestException('Location is required for customers. Please share your location.');
+      }
+    }
+
     // Check if phone already exists
     const existingPhone = await this.userModel.findOne({ phone: registerDto.phone });
     if (existingPhone) {

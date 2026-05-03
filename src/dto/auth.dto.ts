@@ -24,7 +24,7 @@ export class RegisterDto {
   @IsString()
   city: string;
 
-  // Worker fields
+  // Worker fields - Required for workers
   @IsOptional()
   @IsString()
   skill?: string;
@@ -32,6 +32,10 @@ export class RegisterDto {
   @IsOptional()
   @IsNumber()
   experience?: number;
+
+  @IsOptional()
+  @IsString()
+  workerAddress?: string;
 
   @IsOptional()
   @IsNumber()

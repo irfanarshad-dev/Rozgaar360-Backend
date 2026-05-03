@@ -13,6 +13,7 @@ import { Review, ReviewSchema } from '../schemas/review.schema';
 import { Payment, PaymentSchema } from '../schemas/payment.schema';
 import { Category, CategorySchema } from '../schemas/category.schema';
 import { RolesGuard } from './roles.guard';
+import { EmailService } from '../services/email.service';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { RolesGuard } from './roles.guard';
     ]),
   ],
   controllers: [AdminController],
-  providers: [AdminService, RolesGuard],
+  providers: [AdminService, RolesGuard, EmailService],
   exports: [AdminService],
 })
 export class AdminModule {}

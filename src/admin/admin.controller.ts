@@ -67,6 +67,11 @@ export class AdminController {
     return this.adminService.suspendWorker(params.id);
   }
 
+  @Get('workers/:id/documents')
+  async getWorkerDocuments(@Param(new ValidationPipe({ transform: true })) params: MongoIdParamDto) {
+    return this.adminService.getWorkerDocuments(params.id);
+  }
+
   @Delete('workers/:id')
   async deleteWorker(@Param(new ValidationPipe({ transform: true })) params: MongoIdParamDto) {
     return this.adminService.deleteWorker(params.id);

@@ -11,6 +11,7 @@ import { Category } from '../schemas/category.schema';
 import { Conversation } from '../schemas/conversation.schema';
 import { Message } from '../schemas/message.schema';
 import { Notification } from '../schemas/notification.schema';
+import { EmailService } from '../services/email.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -26,6 +27,7 @@ export class AdminService {
     @InjectModel(Conversation.name) private conversationModel: Model<Conversation>,
     @InjectModel(Message.name) private messageModel: Model<Message>,
     @InjectModel(Notification.name) private notificationModel: Model<Notification>,
+    private emailService: EmailService,
   ) {}
 
   private toObjectId(id: string) {
@@ -149,6 +151,16 @@ export class AdminService {
       { new: true, upsert: false },
     );
 
+    // Send approval email
+    try {
+      if (worker.email) {
+        await this.emailService.sendVerificationApproved(worker.email, worker.name);
+        console.log(`✅ Verification approved email sent to ${worker.email}`);
+      }
+    } catch (emailError) {
+      console.error('❌ Failed to send verification email:', emailError.message);
+    }
+
     const updated = await this.userModel.findById(workerId).select({ password: 0 }).lean();
     return { message: 'Worker approved successfully', data: updated };
   }
@@ -169,6 +181,16 @@ export class AdminService {
       { new: true },
     );
 
+    // Send rejection email
+    try {
+      if (worker.email) {
+        await this.emailService.sendVerificationRejected(worker.email, worker.name);
+        console.log(`✅ Verification rejected email sent to ${worker.email}`);
+      }
+    } catch (emailError) {
+      console.error('❌ Failed to send verification email:', emailError.message);
+    }
+
     const updated = await this.userModel.findById(workerId).select({ password: 0 }).lean();
     return { message: 'Worker suspended successfully', data: updated };
   }
@@ -181,6 +203,30 @@ export class AdminService {
     await this.userModel.findByIdAndDelete(workerId);
 
     return { message: 'Worker deleted successfully' };
+  }
+
+  async getWorkerDocuments(workerId: string) {
+    const worker = await this.userModel.findOne({ _id: workerId, role: 'worker' }).select({ password: 0 }).lean();
+    if (!worker) throw new NotFoundException('Worker not found');
+
+    const profile = await this.workerProfileModel.findOne({ userId: this.toObjectId(workerId) }).lean();
+    if (!profile) throw new NotFoundException('Worker profile not found');
+
+    return {
+      worker: {
+        _id: worker._id,
+        name: worker.name,
+        email: worker.email,
+        phone: worker.phone,
+      },
+      documents: {
+        cnicFrontUrl: profile.cnicFrontUrl || null,
+        cnicBackUrl: profile.cnicBackUrl || null,
+        verificationStatus: profile.verificationStatus,
+        verified: profile.verified,
+        verifiedAt: profile.verifiedAt,
+      },
+    };
   }
 
   // BOOKINGS
@@ -386,6 +432,22 @@ export class AdminService {
     if (status === 'approved') {
       user.isActive = true;
       await user.save();
+    }
+
+    // Send email notification
+    try {
+      if (user.email) {
+        if (status === 'approved') {
+          await this.emailService.sendVerificationApproved(user.email, user.name);
+          console.log(`Verification approved email sent to ${user.email}`);
+        } else {
+          await this.emailService.sendVerificationRejected(user.email, user.name);
+          console.log(`Verification rejected email sent to ${user.email}`);
+        }
+      }
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError.message);
+      // Don't throw error, just log it - verification should still succeed
     }
 
     return {

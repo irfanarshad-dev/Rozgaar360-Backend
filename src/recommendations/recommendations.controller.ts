@@ -37,6 +37,7 @@ export class RecommendationsController {
   async getAIRecommendations(
     @Query('query') query: string,
     @Query('city') city?: string,
+    @Query('skill') skill?: string,
     @Query('lat') lat?: string,
     @Query('lng') lng?: string,
     @Query('radiusKm') radiusKm?: string,
@@ -45,7 +46,7 @@ export class RecommendationsController {
     const latNum = lat ? parseFloat(lat) : undefined;
     const lngNum = lng ? parseFloat(lng) : undefined;
     const radiusKmNum = radiusKm ? parseFloat(radiusKm) : undefined;
-    return this.recommendationsService.getAIRecommendations(query, city, latNum, lngNum, radiusKmNum, language);
+    return this.recommendationsService.getAIRecommendations(query, city, skill, latNum, lngNum, radiusKmNum, language);
   }
 
   @Post('jobs/ai')

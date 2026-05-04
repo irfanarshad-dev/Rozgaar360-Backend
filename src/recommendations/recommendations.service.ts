@@ -258,12 +258,37 @@ export class RecommendationsService {
     return nearestWorkers;
   }
 
-  async getAIRecommendations(query: string, city?: string, lat?: number, lng?: number, radiusKm = DEFAULT_RADIUS_KM, language = 'en') {
+  async getAIRecommendations(query: string, city?: string, skill?: string, lat?: number, lng?: number, radiusKm = DEFAULT_RADIUS_KM, language = 'en') {
     if (!query || query.trim().length === 0) {
       return [];
     }
 
-    const baseWorkers = await this.getRecommendations(city, undefined, 60, lat, lng, radiusKm);
+    // Extract skill from query if not provided
+    let detectedSkill = skill;
+    if (!detectedSkill) {
+      const queryLower = query.toLowerCase();
+      const skillKeywords = {
+        'Electrician': ['electrician', 'electric', 'wiring', 'electricity', 'bijli'],
+        'Plumber': ['plumber', 'plumbing', 'pipe', 'water', 'pani', 'nali'],
+        'Carpenter': ['carpenter', 'carpentry', 'wood', 'furniture', 'lakri'],
+        'Painter': ['painter', 'painting', 'paint', 'rang'],
+        'Cleaner': ['cleaner', 'cleaning', 'clean', 'safai'],
+        'Mechanic': ['mechanic', 'repair', 'fix', 'machine'],
+        'Cook': ['cook', 'chef', 'cooking', 'food', 'khana'],
+        'Tailor': ['tailor', 'sewing', 'stitch', 'darzi', 'kapray'],
+        'Driver': ['driver', 'driving', 'drive', 'car'],
+        'AC Repair': ['ac', 'air conditioner', 'cooling', 'ac repair', 'ac technician'],
+      };
+
+      for (const [skillName, keywords] of Object.entries(skillKeywords)) {
+        if (keywords.some(keyword => queryLower.includes(keyword))) {
+          detectedSkill = skillName;
+          break;
+        }
+      }
+    }
+
+    const baseWorkers = await this.getRecommendations(city, detectedSkill, 60, lat, lng, radiusKm);
 
     if (baseWorkers.length === 0) {
       return [];

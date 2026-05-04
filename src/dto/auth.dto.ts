@@ -50,10 +50,6 @@ export class RegisterDto {
   workerLongitude?: number;
 
   @IsOptional()
-  @IsString()
-  workerAddress?: string;
-
-  @IsOptional()
   @IsBoolean()
   isAvailableNow?: boolean;
 
